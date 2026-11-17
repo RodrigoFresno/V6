@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#050914"><link rel="manifest" href="./manifest.webmanifest"><title>Quick Start — Living Particles</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;touch-action:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;background:#050914}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#toggle{position:fixed;right:14px;top:calc(14px + env(safe-area-inset-top));width:38px;height:38px;border-radius:50%;border:1px solid #ffffff2a;background:#0b1832bb;color:#d8eaff;font-size:17px}
+#panel{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));max-width:410px;margin:auto;padding:14px 16px;border:1px solid #ffffff20;border-radius:20px;background:#09152bdc;color:#e5f2ff;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 8px 40px #0007;transition:.25s}
+#panel.hide{transform:translateY(130%);opacity:0;pointer-events:none}
+.head{font-size:11px;font-weight:700;letter-spacing:.1em;color:#9bcaff;display:flex;justify-content:space-between;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:12px;margin:9px 0}.row label{font-size:11px;color:#b8cce2;flex:1}input[type=range]{width:55%;accent-color:#45a8ff}input[type=color]{width:28px;height:28px;border:0;padding:0;background:none}
+button.action{border:1px solid #ffffff28;background:#102341;color:#d8eaff;border-radius:11px;padding:8px 11px;font-size:11px}
+.actions{display:flex;justify-content:space-between;gap:8px;margin-top:12px}.hint{font-size:10px;color:#8ca9c8;margin-top:8px}
+</style></head><body><canvas id="c"></canvas><button id="toggle">⌄</button>
+<div id="panel"><div class="head"><span>LIVING PARTICLES</span><span id="state">AUTONOMOUS FLOW</span></div>
+<div class="row"><label>Fundo</label><button class="action" id="bg">Preto</button></div>
+<div class="row"><label>Cor das partículas</label><input id="color" type="color" value="#42a5ff"></div>
+<div class="row"><label>Densidade</label><input id="count" type="range" min="1200" max="7000" step="200" value="4200"></div>
+<div class="row"><label>Fluidez / velocidade</label><input id="speed" type="range" min=".3" max="1.8" step=".05" value=".9"></div>
+<div class="row"><label>Redemoinhos</label><input id="vortex" type="range" min=".3" max="2" step=".05" value="1"></div>
+<div class="row"><label>Reação ao toque</label><input id="touch" type="range" min=".3" max="3" step=".1" value="1.4"></div>
+<div class="actions"><button class="action" id="reset">Reiniciar partículas</button><button class="action" id="full">Tela cheia</button></div>
+<div class="hint">Toque e arraste: as partículas são empurradas e despertam redemoinhos locais.</div></div>
+<script>
+(()=>{
+const canvas=document.querySelector('#c'),ctx=canvas.getContext('2d',{alpha:false});
+let w,h,dpr,N=4200,particles=[],time=0,last=0,speed=.9,vortex=1,touchPower=1.4,color='#42a5ff',dark=true;
+const TAU=Math.PI*2,rand=(a,b)=>a+Math.random()*(b-a);
+const centers=[[-.36,-.2,.75], [.32,-.28,-.62],[-.28,.34,-.55],[.30,.30,.70],[.02,.02,.38]];
+const pointer={x:-9999,y:-9999,px:-9999,py:-9999,down:false};
+function resize(){dpr=Math.min(devicePixelRatio||1,1.8);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);seed()}
+function seed(){particles=[];for(let i=0;i<N;i++){let a=rand(0,TAU),r=Math.sqrt(Math.random())*rand(.42,1.02);particles.push({x:Math.cos(a)*r,y:Math.sin(a)*r*.94,vx:rand(-.001,.001),vy:rand(-.001,.001),phase:rand(0,TAU),size:rand(.4,1.3),seed:rand(0,100),life:rand(0,1)})}}
+function point(e){let b=canvas.getBoundingClientRect();return{x:e.clientX-b.left,y:e.clientY-b.top}}
+canvas.addEventListener('pointerdown',e=>{let p=point(e);pointer.x=pointer.px=p.x;pointer.y=pointer.py=p.y;pointer.down=true;canvas.setPointerCapture(e.pointerId);document.querySelector('#state').textContent='TOQUE DETECTADO'});
+canvas.addEventListener('pointermove',e=>{let p=point(e);pointer.px=pointer.x;pointer.py=pointer.y;pointer.x=p.x;pointer.y=p.y});
+function release(){pointer.down=false;pointer.x=pointer.y=-9999;document.querySelector('#state').textContent='AUTONOMOUS FLOW'}
+canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
+function tick(ms){let dt=Math.min((ms-last)/16.67||1,1.5);last=ms;time+=dt*.012*speed;
+ const cx=w/2,cy=h*.49,R=Math.min(w,h)*.29;
+ const rgb=parseInt(color.slice(1),16),cr=rgb>>16&255,cg=rgb>>8&255,cb=rgb&255;
+ ctx.fillStyle=dark?'rgba(5,9,20,.24)':'rgba(255,255,255,.24)';ctx.fillRect(0,0,w,h);
+ // Soft volumetric glow, blended into the background.
+ let aura=ctx.createRadialGradient(cx,cy,2,cx,cy,R*1.4);
+ aura.addColorStop(0,dark?'rgba(15,92,180,.08)':'rgba(75,155,230,.07)');
+ aura.addColorStop(1,dark?'rgba(5,9,20,0)':'rgba(255,255,255,0)');
+ ctx.fillStyle=aura;ctx.beginPath();ctx.arc(cx,cy,R*1.4,0,TAU);ctx.fill();
+ for(const p of particles){
+  let x=p.x,y=p.y,fx=.0028*Math.sin(y*7+time*.8+p.seed*.08),fy=.0028*Math.cos(x*6-time*.7+p.phase);
+  // Five distinct, slowly wandering vortices; each particle feels the nearest local flows differently.
+  for(let j=0;j<centers.length;j++){
+   let [ox,oy,s]=centers[j],vx=ox+.045*Math.sin(time*.35+j*1.7),vy=oy+.04*Math.cos(time*.31+j*1.2);
+   let dx=x-vx,dy=y-vy,d2=dx*dx+dy*dy+.022,inf=Math.exp(-d2/(.16+(j%2)*.025));
+   fx+=s*inf*(-dy)*.009*vortex;fy+=s*inf*dx*.009*vortex;
+   let pulse=Math.sin(time*.7+p.phase+j)*.0009*inf;fx+=dx*pulse;fy+=dy*pulse;
+  }
+  // Individual micro motion, not synchronized to one global rotation.
+  fx+=.00075*Math.sin(time*1.7+p.phase*1.8+p.seed*.3);
+  fy+=.00075*Math.cos(time*1.45+p.phase*1.4+p.seed*.27);
+  let rr=Math.hypot(x,y)+1e-6,ex=Math.max(rr-.99,0);fx-=x/rr*ex*.006;fy-=y/rr*ex*.006;
+  // Finger repulsion plus a tangential wake. The wake fades smoothly after the finger moves.
+  let sx=cx+x*R,sy=cy+y*R,dxp=sx-pointer.x,dyp=sy-pointer.y,dist=Math.hypot(dxp,dyp);
+  if(dist<R*.48){let influence=(1-dist/(R*.48))*touchPower*(pointer.down?2.4:.55);
+   fx+=dxp/(dist+1)*influence*.000035;fy+=dyp/(dist+1)*influence*.000035;
+   if(pointer.down){fx+=-dyp/(dist+1)*influence*.00012+(pointer.x-pointer.px)/R*influence*.00008;fy+=dxp/(dist+1)*influence*.00012+(pointer.y-pointer.py)/R*influence*.00008}
+  }
+  p.vx=(p.vx+fx*dt)*.986;p.vy=(p.vy+fy*dt)*.986;p.x+=p.vx*dt;p.y+=p.vy*dt;
+  if(Math.hypot(p.x,p.y)>1.2){let a=rand(0,TAU),r=rand(.25,.82);p.x=Math.cos(a)*r;p.y=Math.sin(a)*r*.94;p.vx=p.vy=0}
+  let X=cx+p.x*R,Y=cy+p.y*R,pulse=.58+.42*Math.sin(ms*.0018+p.phase),alpha=(.24+.3*pulse)*(dark?1:.78),rad=p.size*(.75+Math.min(.5,Math.hypot(p.vx,p.vy)*80));
+  ctx.beginPath();ctx.fillStyle=`rgba(${cr},${cg},${cb},${alpha*.20})`;ctx.arc(X,Y,rad*2.5,0,TAU);ctx.fill();
+  ctx.beginPath();ctx.fillStyle=`rgba(${Math.min(255,cr+25)},${Math.min(255,cg+35)},255,${alpha})`;ctx.arc(X,Y,Math.max(.35,rad*.55),0,TAU);ctx.fill();
+ }
+ requestAnimationFrame(tick)}
+document.querySelector('#color').oninput=e=>color=e.target.value;
+document.querySelector('#count').oninput=e=>{N=+e.target.value;seed()};
+document.querySelector('#speed').oninput=e=>speed=+e.target.value;
+document.querySelector('#vortex').oninput=e=>vortex=+e.target.value;
+document.querySelector('#touch').oninput=e=>touchPower=+e.target.value;
+document.querySelector('#bg').onclick=e=>{dark=!dark;document.body.style.background=dark?'#050914':'#fff';e.target.textContent=dark?'Preto':'Branco';document.querySelector('meta[name=theme-color]').content=dark?'#050914':'#ffffff'};
+document.querySelector('#reset').onclick=seed;
+document.querySelector('#full').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
+document.querySelector('#toggle').onclick=()=>{let p=document.querySelector('#panel');p.classList.toggle('hide');document.querySelector('#toggle').textContent=p.classList.contains('hide')?'⌃':'⌄'};
+addEventListener('resize',resize);resize();requestAnimationFrame(tick);
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+})();
+</script></body></html>
